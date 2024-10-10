@@ -6,6 +6,8 @@
 #ifndef __GAME_PLAYER_H__
 #define __GAME_PLAYER_H__
 
+#include "Actor.h" //TODO ys56
+
 /*
 ===============================================================================
 
@@ -269,6 +271,14 @@ public:
 
 class idPlayer : public idActor {
 public:
+	//TODO ys56
+	void UpdateEnemyTracking();
+	void EngageClosestEnemy();
+	void EngageMostHealthEnemy();
+	void HandleInput();
+
+	idActor* currentTarget;
+	//end ys56
 
  	enum {
  		EVENT_IMPULSE = idEntity::EVENT_MAXEVENTS,

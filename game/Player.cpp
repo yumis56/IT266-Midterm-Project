@@ -1071,12 +1071,72 @@ bool idInventory::UseAmmo( int index, int amount ) {
 	return true;
 }
 
+//TODO ys56
+
+void idPlayer::UpdateEnemyTracking() {
+	if (HasEnemies() && !currentTarget) {
+		//no target, but still in battle
+		EngageClosestEnemy();
+	}
+	else if (currentTarget) {
+		//do auto-attack
+	}
+	else {
+		//no enemies
+	}
+
+}
+
+void idPlayer::EngageClosestEnemy() {
+	float searchRange = 1000.0f;
+	idVec3		org;
+	if (HasEnemies()) {
+		org = GetPhysics()->GetOrigin();
+		idActor* closestEnemy = ClosestEnemyToPoint(org, searchRange);
+		if (closestEnemy) {
+			currentTarget = closestEnemy;
+		}
+	}
+}
+
+void idPlayer::EngageMostHealthEnemy() {
+	if (HasEnemies()) {
+		idActor* mostHealthEnemy = EnemyWithMostHealth();
+		if (mostHealthEnemy) {
+			currentTarget = mostHealthEnemy;
+		}
+	}
+}
+
+void idPlayer::HandleInput() {
+	//regular target
+	if (IMPULSE_23) {
+		EngageClosestEnemy();
+		gameLocal.Printf("Pressed tab.");
+
+	}
+	//attempt to fire
+	else if (BUTTON_ATTACK) {
+		UpdateEnemyTracking();
+	}
+	//special target
+	/*
+	else if () {
+		EngageMostHealthEnemy();
+	}
+	*/
+}
+
+
+//end ys56
+
 /*
 ==============
 idPlayer::idPlayer
 ==============
 */
-idPlayer::idPlayer() {
+idPlayer::idPlayer(){
+
 	memset( &usercmd, 0, sizeof( usercmd ) );
 
 	alreadyDidTeamAnnouncerSound = false;
@@ -2084,6 +2144,7 @@ idPlayer::Save
 */
 void idPlayer::Save( idSaveGame *savefile ) const {
 	int i;
+	idActor::Save(savefile); //TODO ys56
 
 	savefile->WriteUsercmd( usercmd );
 
@@ -2346,6 +2407,8 @@ idPlayer::Restore
 void idPlayer::Restore( idRestoreGame *savefile ) {
 	int	  i;
 	int   num;
+
+	idActor::Restore(savefile); //TODO ys56
 
 	savefile->ReadUsercmd( usercmd );
 
@@ -9300,6 +9363,11 @@ void idPlayer::Think( void ) {
 		}
 	}
 
+	//TODO ys56
+	//idActor::Think();
+	UpdateEnemyTracking();
+	//end ys56
+
 	if ( !gameLocal.usercmds ) {
 		return;
 	}
@@ -9645,6 +9713,7 @@ void idPlayer::Think( void ) {
 	inBuyZonePrev = false;
 }
 
+// TODO ys56 haven't changed this but may be useful?
 /*
 =================
 idPlayer::RouteGuiMouse
