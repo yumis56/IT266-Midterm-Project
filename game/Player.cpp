@@ -3457,6 +3457,7 @@ void idPlayer::UpdateHudWeapon( int displayWeapon ) {
 	idUserInterface * mphud = idPlayer::mphud;
 	idUserInterface * cursor = idPlayer::cursor;
 
+
 	if ( !gameLocal.GetLocalPlayer() ) {
 		// server netdemo
 		if ( gameLocal.GetDemoState() == DEMO_PLAYING && gameLocal.IsServerDemo() && gameLocal.GetDemoFollowClient() == entityNumber ) {
@@ -9628,6 +9629,9 @@ void idPlayer::Think( void ) {
 		common->DPrintf( "player %d not thinking?\n", entityNumber );
 	}
 
+	//=========
+	//TODO ys56
+	/* original
 	if ( g_showEnemies.GetBool() ) {
 		idActor *ent;
 		int num = 0;
@@ -9635,15 +9639,31 @@ void idPlayer::Think( void ) {
 			common->DPrintf( "enemy (%d)'%s'\n", ent->entityNumber, ent->name.c_str() );
 			gameRenderWorld->DebugBounds( colorRed, ent->GetPhysics()->GetBounds().Expand( 2 ), ent->GetPhysics()->GetOrigin() );
 			num++;
+
 		}
 		common->DPrintf( "%d: enemies\n", num );
 	}
+	*/
+	
+	if (g_showEnemies.GetBool()) {
+		idActor* ent = enemyList.Next();
+		if (ent != NULL) {
+			common->DPrintf("enemy (%d)'%s'\n", ent->entityNumber, ent->name.c_str());
+			gameRenderWorld->DebugBounds(colorRed, ent->GetPhysics()->GetBounds().Expand(2), ent->GetPhysics()->GetOrigin());
+			common->DPrintf("Currently (%d): '%s'\n", ent->entityNumber, ent->name.c_str());
+		}
+		LookAtEnemy(ent);
+	}
+
+	//END ys56
+	//========
 
 	if ( !inBuyZonePrev )
 		inBuyZone = false;
 
 	inBuyZonePrev = false;
 }
+
 
 /*
 =================
@@ -9674,6 +9694,25 @@ bool idPlayer::CanZoom( void  )
 
 	return weapon && weapon->CanZoom() && !weapon->IsReloading ( );
 }
+
+//=========
+//TODO ys56
+void idPlayer::LookAtEnemy(idEntity* attacker) {
+	idVec3 dir;
+
+	if (attacker && attacker != this) {
+		dir = attacker->GetPhysics()->GetOrigin() - GetPhysics()->GetOrigin();
+	}
+	else {
+		dir = viewAxis[0];
+	}
+
+	idAngles ang(0, dir.ToYaw(), 0);
+	SetViewAngles(ang);
+}
+
+//END ys56
+//=========
 
 /*
 ==================
@@ -10111,6 +10150,11 @@ void idPlayer::Damage( idEntity *inflictor, idEntity *attacker, const idVec3 &di
 	if ( !attacker ) {
 		attacker = gameLocal.world;
 	}
+	//TODO ys56
+	if (attacker == this) {
+		return;
+	}
+	//END ys56
 
 	// MCG: player doesn't take friendly fire damage, except from self!
 	if ( !gameLocal.isMultiplayer && attacker != this ) {
@@ -10760,7 +10804,7 @@ void idPlayer::OffsetThirdPersonVehicleView( bool clip ) {
 	renderView->viewaxis = angles.ToMat3() * physicsObj.GetGravityAxis();
 	renderView->viewID = 0;
 }
-
+//LOOK AT THIS ys56
 /*
 ===============
 idPlayer::OffsetThirdPersonView
@@ -11791,7 +11835,7 @@ void idPlayer::LocalClientPredictionThink( void ) {
 	usercmd.buttons &= ~buttonMask;
 
 	if ( idealWeapon != currentWeapon ) {
-		usercmd.buttons &= ~BUTTON_ATTACK;		
+		usercmd.buttons &= ~BUTTON_ATTACK;	usercmd.buttons &= ~BUTTON_ATTACK;		
 	}
 
  	// clear the ik before we do anything else so the skeleton doesn't get updated twice
@@ -12172,6 +12216,12 @@ void idPlayer::ClientPredictionThink( void ) {
 	NonLocalClientPredictionThink();
 }
 
+
+
+//TODO ys56 ================
+//return idActor::GetMasterPosition( masterOrigin, masterAxis );
+
+
 /*
 ================
 idPlayer::GetMasterPosition
@@ -12256,6 +12306,7 @@ bool idPlayer::WantSmoothing( void ) const {
 	}
 	return true;
 }
+
 
 /*
 ================
