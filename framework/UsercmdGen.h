@@ -63,11 +63,15 @@ const int IMPULSE_19			= 19;			// show PDA/INV/MAP
 const int IMPULSE_20			= 20;			// toggle team ( toggles ui_team )
 const int IMPULSE_21			= 21;			// tourney toggle waiting room/spec
 const int IMPULSE_22			= 22;			// spectate
-const int IMPULSE_23			= 23;			// <unused>
+
+//TODO ys56 use this
+const int IMPULSE_23			= 23;			// <unused> tab?
 const int IMPULSE_24			= 24;			// <unused>
 const int IMPULSE_25			= 25;			// <unused>
 const int IMPULSE_26			= 26;			// <unused>
 const int IMPULSE_27			= 27;			// <unused>
+//END ys56
+
 const int IMPULSE_28			= 28;			// vote yes
 const int IMPULSE_29			= 29;			// vote no
 const int IMPULSE_40			= 40;			// repeast last radio chatter

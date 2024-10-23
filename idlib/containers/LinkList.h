@@ -36,6 +36,8 @@ public:
 	type *				Owner( void ) const;
 	void				SetOwner( type *object );
 
+	type *				GetNode(int index); //TODO ys56
+
 	idLinkList *		ListHead( void ) const;
 	idLinkList *		NextNode( void ) const;
 	idLinkList *		PrevNode( void ) const;
@@ -330,5 +332,27 @@ template< class type >
 void idLinkList<type>::SetOwner( type *object ) {
 	owner = object;
 }
+
+
+
+//==============
+//todo ys56
+template< class type >
+type* idLinkList<type>::GetNode(int index) {
+	if (index < 0 || index >= Num()) {
+		return NULL;
+	}
+	idLinkList<type> *node = head->next;
+	for (int i = 0; i < index; i++) {
+		if (node == head) {
+			return NULL;
+		}
+		node = node->next;
+	}
+
+	return node->Owner();
+}
+//end ys56
+//==============
 
 #endif /* !__LINKLIST_H__ */

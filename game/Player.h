@@ -14,6 +14,7 @@
 ===============================================================================
 */
 
+
 extern const idEventDef EV_Player_GetButtons;
 extern const idEventDef EV_Player_GetMove;
 extern const idEventDef EV_Player_GetViewAngles;
@@ -1014,6 +1015,8 @@ private:
 
 	void					LookAtKiller( idEntity *inflictor, idEntity *attacker );
 	void					LookAtEnemy(idEntity* attacker); //TODO ys56
+	void					PickTarget(void); //TODO ys56
+	idActor* currTarget; //TODO ys56
 
 	void					StopFiring( void );
 	void					FireWeapon( void );

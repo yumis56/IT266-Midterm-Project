@@ -48,6 +48,10 @@ idCVar net_showPredictionError( "net_showPredictionError", "-1", CVAR_INTEGER | 
 bool g_ObjectiveSystemOpen = false;
 #endif
 
+idActor* currTarget; //TODO ys65
+int currInt = 0; //TODO ys56
+
+
 // distance between ladder rungs (actually is half that distance, but this sounds better)
 const int LADDER_RUNG_DISTANCE = 32;
 
@@ -8551,6 +8555,20 @@ void idPlayer::PerformImpulse( int impulse ) {
    			}
    			break;
    		}
+		//TODO ys56
+		case IMPULSE_23: {
+			if (g_showEnemies.GetBool() == false) {
+				g_showEnemies.SetBool(1);
+			}
+			else {
+				if (enemyList.IsListEmpty()) {
+					g_showEnemies.SetBool(0); // if only player, allow toggle on/off with tab
+				}
+			}
+			PickTarget();
+			break;
+		}
+		//end ys56
 				
 		case IMPULSE_28: {
  			if ( gameLocal.isClient || entityNumber == gameLocal.localClientNum ) {
@@ -9631,7 +9649,22 @@ void idPlayer::Think( void ) {
 
 	//=========
 	//TODO ys56
-	/* original
+	if (g_showEnemies.GetBool()) {
+		idActor* ent = enemyList.Next();
+		if (ent == NULL) {
+			gameRenderWorld->DebugBounds(colorBlue, this->GetPhysics()->GetBounds().Expand(2), this->GetPhysics()->GetOrigin());
+			common->DPrintf("Currently (%d): '%s'\n", this->entityNumber, this->name.c_str());
+		}
+		else {
+			common->DPrintf("enemy (%d)'%s'\n", currTarget->entityNumber, currTarget->name.c_str());
+			gameRenderWorld->DebugBounds(colorRed, currTarget->GetPhysics()->GetBounds().Expand(2), currTarget->GetPhysics()->GetOrigin());
+			common->DPrintf("Currently (%d): '%s'\n", currTarget->entityNumber, currTarget->name.c_str());
+			LookAtEnemy(currTarget);
+		}
+		
+		
+	}
+	/* original, ignore
 	if ( g_showEnemies.GetBool() ) {
 		idActor *ent;
 		int num = 0;
@@ -9645,6 +9678,7 @@ void idPlayer::Think( void ) {
 	}
 	*/
 	
+	/* this works but only picks 1 enemy
 	if (g_showEnemies.GetBool()) {
 		idActor* ent = enemyList.Next();
 		if (ent != NULL) {
@@ -9654,7 +9688,20 @@ void idPlayer::Think( void ) {
 		}
 		LookAtEnemy(ent);
 	}
-
+	*/
+	
+	/* todo crashing???
+	if (g_showEnemies.GetBool()) {
+		idActor* ent = enemyList.NextNode()->Owner();;
+	
+		if (ent != NULL) {
+			common->DPrintf("enemy (%d)'%s'\n", ent->entityNumber, ent->name.c_str());
+			gameRenderWorld->DebugBounds(colorRed, ent->GetPhysics()->GetBounds().Expand(2), ent->GetPhysics()->GetOrigin());
+			common->DPrintf("Currently (%d): '%s'\n", ent->entityNumber, ent->name.c_str());
+		}
+		LookAtEnemy(ent);
+	}
+	*/
 	//END ys56
 	//========
 
@@ -9664,6 +9711,43 @@ void idPlayer::Think( void ) {
 	inBuyZonePrev = false;
 }
 
+//=================
+//TODO ys56
+//change this next
+void idPlayer::PickTarget(void) {
+	idActor* ent = enemyList.Next();
+	if (currTarget == NULL || currTarget == this) {
+		if (ent != NULL) {
+			currTarget = ent;
+		}
+		else {
+			currTarget = this;
+		}
+	}
+	else {
+		//if already has non-player target
+		if (enemyList.Num() <= 1) {
+			currTarget = ent;
+		}
+		else {
+			currInt++;
+			if (currInt >= enemyList.Num()) {
+				currInt = 0;
+			}
+			if (enemyList.GetNode(currInt) != NULL) {
+				currTarget = enemyList.GetNode(currInt);
+			}
+			
+		}
+		
+
+	}
+	
+	
+}
+
+//end ys56
+//=================
 
 /*
 =================
@@ -9696,6 +9780,7 @@ bool idPlayer::CanZoom( void  )
 }
 
 //=========
+// this works for third person!! how exciting!!!
 //TODO ys56
 void idPlayer::LookAtEnemy(idEntity* attacker) {
 	idVec3 dir;
