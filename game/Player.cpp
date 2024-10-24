@@ -8719,7 +8719,7 @@ void idPlayer::PerformImpulse( int impulse ) {
 			}
 			PickTarget();
 			break;
-		}
+		}/*
 		case IMPULSE_24: {
 			if (!isAutoFire) {
 				//gameLocal.Warning("Haven't completed previous move.");
@@ -8729,7 +8729,7 @@ void idPlayer::PerformImpulse( int impulse ) {
 				g_showEnemies.SetBool(0);
 			}
 			break;
-		}
+		}*/
 		//end ys56
 				
 		case IMPULSE_28: {
