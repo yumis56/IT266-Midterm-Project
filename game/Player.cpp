@@ -5779,10 +5779,12 @@ void idPlayer::SelectWeapon( int num, bool force ) {
 	const char *weap;
 	//TODO ys56 patch5
 	//if implementing non-weapon commands, simply add their bool here
+	/*
 	if (nextAutoFire != 0) {
 		gameLocal.Warning("Haven't completed previous move.");
 		return;
 	}
+	*/
 	//end ys56 patch5
 
  	if ( !weaponEnabled || spectating || gameLocal.inCinematic || health < 0 ) {
@@ -8567,24 +8569,43 @@ void idPlayer::PerformImpulse( int impulse ) {
 	}
 	//TODO ys56 patch4 look here
 	if ( impulse >= IMPULSE_0 && impulse <= IMPULSE_12 ) {
-		if (hasAutoTarget) {
-			isAutoFire = false; //temp turn off autofire when any valid numkey pressed, later turn back after firing
-			nextAutoFire = 0;
-			endAutoFire = 0;
+
+
+		if (enemyList.IsListEmpty()) {
+			return; //only self, don't bother.
 		}
-		
+		else {
+			if (hasAutoTarget && isAutoFire) { //already has target + already auto fire
+				isAutoFire = false; //temp turn off autofire when any valid numkey pressed, later turn back after firing
+				nextAutoFire = 0;
+				endAutoFire = 0;
+			}
+			else if (hasAutoTarget) { //has target but is using non-auto-fire move
+				//gameLocal.Warning("Haven't completed previous move.");
+				return; //don't allow weapon swap
+			}
+			else { //has no target yet | at some point player had stopped targeting
+				if (g_showEnemies.GetBool() == false) {
+					g_showEnemies.SetBool(1);
+					//isAutoFire = true; // should be false
+					isAutoFire = false;
+					//PickTarget(); //this will set the hasAutoTarget
+					currTarget = enemyList.Next(); //already has confirmed enemylist is not empty, don't bother checking null or player
+					//return;
+				}
+			}
+		}
+
+
+			
+			
+			
+
+
 
 		//set false only if even targeting
 		// reset timers if impulse pressed
 		// 
-		//TODO ys56 patch4
-		/*
-		if (impulse == IMPULSE_0) {
-			isAutoFire = true;
-		}
-		else { isAutoFire = false; }
-		*/
-		//maybe patch5
 		// instead of select weapon, a separate method calls selectweapon, fires, then swaps back to blaster
 		//end ys56 patch4
 		SelectWeapon( impulse, false );
@@ -8685,16 +8706,28 @@ void idPlayer::PerformImpulse( int impulse ) {
 		case IMPULSE_23: {
 			if (g_showEnemies.GetBool() == false) {
 				g_showEnemies.SetBool(1);
+				isAutoFire = true;
 			}
 			else {
 				if (enemyList.IsListEmpty()) {
 					g_showEnemies.SetBool(0); // if only player, allow toggle on/off with tab
 					currTarget = NULL; //patch3 - trying to reset to null if targeting is off
+					isAutoFire = false;
 					hasAutoTarget = false;
 					break;
 				}
 			}
 			PickTarget();
+			break;
+		}
+		case IMPULSE_24: {
+			if (!isAutoFire) {
+				//gameLocal.Warning("Haven't completed previous move.");
+				break;
+			}
+			else {
+				g_showEnemies.SetBool(0);
+			}
 			break;
 		}
 		//end ys56
@@ -9827,6 +9860,10 @@ void idPlayer::Think( void ) {
 	} //end of checking showEnemies true
 	else {
 		hasAutoTarget = false;
+		//isAutofire = true //should it? i feel like pressing the numkeys should also trigger autotarget
+		nextAutoFire = 0;
+		endAutoFire = 0;
+
 	}
 
 	
@@ -9850,31 +9887,8 @@ void idPlayer::Think( void ) {
 		common->DPrintf( "%d: enemies\n", num );
 	}
 	*/
-	
-	/* this works but only picks 1 enemy
-	if (g_showEnemies.GetBool()) {
-		idActor* ent = enemyList.Next();
-		if (ent != NULL) {
-			common->DPrintf("enemy (%d)'%s'\n", ent->entityNumber, ent->name.c_str());
-			gameRenderWorld->DebugBounds(colorRed, ent->GetPhysics()->GetBounds().Expand(2), ent->GetPhysics()->GetOrigin());
-			common->DPrintf("Currently (%d): '%s'\n", ent->entityNumber, ent->name.c_str());
-		}
-		LookAtEnemy(ent);
-	}
-	*/
-	
-	/* todo crashing???
-	if (g_showEnemies.GetBool()) {
-		idActor* ent = enemyList.NextNode()->Owner();;
-	
-		if (ent != NULL) {
-			common->DPrintf("enemy (%d)'%s'\n", ent->entityNumber, ent->name.c_str());
-			gameRenderWorld->DebugBounds(colorRed, ent->GetPhysics()->GetBounds().Expand(2), ent->GetPhysics()->GetOrigin());
-			common->DPrintf("Currently (%d): '%s'\n", ent->entityNumber, ent->name.c_str());
-		}
-		LookAtEnemy(ent);
-	}
-	*/
+
+
 	//END ys56
 	//========
 
