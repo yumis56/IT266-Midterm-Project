@@ -50,6 +50,17 @@ bool g_ObjectiveSystemOpen = false;
 
 idActor* currTarget; //TODO ys65
 int currInt = 0; //TODO ys56
+const int cooldownAutoFire = 2400; //ys56
+const int cooldownStopFire = 1200;
+//const int endAutoFire = 3500; //ys56
+int nextAutoFire = 0;
+int endAutoFire = 0;
+bool isAutoFire = false; //TODO ys56 this is just checking if blaster is selected or not
+/*
+while weapon is blaster (blaster only for auto attack)
+auto attack
+else, dont auto attack, because middle of doing whatever special other weapon attack
+*/
 
 
 // distance between ladder rungs (actually is half that distance, but this sounds better)
@@ -4973,7 +4984,7 @@ void idPlayer::UpdatePowerUps( void ) {
 		}
 // RITUAL END
 	}
-
+	//TODO ys56 patch4 look here
 	// Regenerate ammo
 	if( gameLocal.isServer && PowerUpActive( POWERUP_AMMOREGEN ) ) {
 		for( int i = 0; i < MAX_WEAPONS; i++ ) {
@@ -4994,6 +5005,7 @@ void idPlayer::UpdatePowerUps( void ) {
 					}
 
 					nextAmmoRegenPulse[ ammoIndex ] = gameLocal.time + time;
+					//TODO ys56 patch4 look here !!
 				}	
 			}
 		}
@@ -6148,16 +6160,35 @@ void idPlayer::Weapon_Combat( void ) {
 	} 
 
 	weaponCatchup = false;
-
+	//TODO ys56 patch4 look at this
 	// check for attack
 	pfl.weaponFired = false;
  	if ( !influenceActive ) {
+		/* original, ignore
  		if ( ( usercmd.buttons & BUTTON_ATTACK ) && !weaponGone ) {
  			FireWeapon();
  		} else if ( oldButtons & BUTTON_ATTACK ) {
  			pfl.attackHeld = false;
  			weapon->EndAttack();
  		}
+		*/
+		if (isAutoFire && !weaponGone) {
+			if (gameLocal.time > nextAutoFire) {
+				FireWeapon();
+				nextAutoFire = gameLocal.time + cooldownAutoFire; // Set the next attack time
+				endAutoFire = gameLocal.time + cooldownStopFire;
+			}
+			if (gameLocal.time > endAutoFire) {
+				pfl.attackHeld = false;
+				weapon->EndAttack();
+			}
+		}
+		else{
+			pfl.attackHeld = false;
+			weapon->EndAttack();
+			nextAutoFire = 0;
+			endAutoFire = 0;
+		}
  	}
 
 	if ( gameLocal.isMultiplayer && spectating ) {
@@ -8498,8 +8529,18 @@ void idPlayer::PerformImpulse( int impulse ) {
 		msg.WriteBits( impulse, IMPULSE_NUMBER_OF_BITS );
 		ClientSendEvent( EVENT_IMPULSE, &msg );
 	}
-
+	//TODO ys56 patch4 look here
 	if ( impulse >= IMPULSE_0 && impulse <= IMPULSE_12 ) {
+		//TODO ys56 patch4
+		/*
+		if (impulse == IMPULSE_0) {
+			isAutoFire = true;
+		}
+		else { isAutoFire = false; }
+		*/
+		//maybe patch5
+		// instead of select weapon, a separate method calls selectweapon, fires, then swaps back to blaster
+		//end ys56 patch4
 		SelectWeapon( impulse, false );
 		return;
 	}
@@ -8603,6 +8644,7 @@ void idPlayer::PerformImpulse( int impulse ) {
 				if (enemyList.IsListEmpty()) {
 					g_showEnemies.SetBool(0); // if only player, allow toggle on/off with tab
 					currTarget = NULL; //patch3 - trying to reset to null if targeting is off
+					isAutoFire = false;
 					break;
 				}
 			}
@@ -9695,23 +9737,52 @@ void idPlayer::Think( void ) {
 		if (ent == NULL) {
 			gameRenderWorld->DebugBounds(colorBlue, this->GetPhysics()->GetBounds().Expand(2), this->GetPhysics()->GetOrigin());
 			common->DPrintf("Currently (%d): '%s'\n", this->entityNumber, this->name.c_str());
-		}
+			isAutoFire = false;
+		}/*
 		else if (ent->IsActive()==false) { //Currently not in use, unsure if needed
 			common->DPrintf("enemy (%d)'%s'\n", currTarget->entityNumber, currTarget->name.c_str());
 			gameRenderWorld->DebugBounds(colorYellow, currTarget->GetPhysics()->GetBounds().Expand(2), currTarget->GetPhysics()->GetOrigin());
 			common->DPrintf("Currently (%d): '%s'\n", currTarget->entityNumber, currTarget->name.c_str());
 			LookAtEnemy(currTarget);
-		}
+		}*/
 		else {
 			common->DPrintf("enemy (%d)'%s'\n", currTarget->entityNumber, currTarget->name.c_str());
 			gameRenderWorld->DebugBounds(colorRed, currTarget->GetPhysics()->GetBounds().Expand(2), currTarget->GetPhysics()->GetOrigin());
 			common->DPrintf("Currently (%d): '%s'\n", currTarget->entityNumber, currTarget->name.c_str());
 			LookAtEnemy(currTarget);
+			isAutoFire = true;
 		}
+
+		//already assumed that target is either this or an enemy, never null
+		/*
+		if (currTarget != this && isAutoFire) {
+			if (gameLocal.time > nextAutoFire && !weaponGone) {
+				nextAutoFire = gameLocal.time + cooldownAutoFire;
+				FireWeapon();
+				endAutoFire = gameLocal.time + (cooldownAutoFire * 3.5);
+				
+			}
+			if (gameLocal.time > endAutoFire && endAutoFire != 0) {
+				pfl.attackHeld = false;
+				weapon->EndAttack();
+				endAutoFire = 0;
+			}
+		}
+		else {
+			pfl.attackHeld = false;
+			weapon->EndAttack();
+			endAutoFire = 0;
+		}
+
+		*/
 		
+		//maybe patch5 if all attacks realively same then use another cooldown for swapping back to blaster, this should be last choice though
 		
-		
-	}
+	} //end of checking showEnemies true
+
+	
+
+
 	/*
 	else { // patch3
 		bossEnemy = NULL;
@@ -9767,6 +9838,7 @@ void idPlayer::Think( void ) {
 //=================
 //TODO ys56
 void idPlayer::PickTarget(void) {
+	//gameLocal.Printf("Charge Delay: '%f' ms\n", GetCurrentWeapon()->spawnArgs.GetFloat("chargeDelay")); //TODO ys56 patch4
 	idActor* ent = enemyList.Next();
 	if (currTarget == NULL || currTarget == this) {
 		if (ent != NULL) {
@@ -9802,7 +9874,7 @@ void idPlayer::PickTarget(void) {
 	if (currTarget != this && currTarget != NULL) {
 		gameLocal.Printf("Target Health '%d'\n", currTarget->health); //DEBUG ys56
 		StartBossBattle(currTarget);
-		gameLocal.Printf("'Boss' Name '%s'\n", currTarget->name.c_str()); //DEBUG ys56
+		//gameLocal.Printf("'Boss' Name '%s'\n", currTarget->name.c_str()); //DEBUG ys56
 	}
 	
 
