@@ -8591,6 +8591,7 @@ void idPlayer::PerformImpulse( int impulse ) {
 					isAutoFire = false;
 					//PickTarget(); //this will set the hasAutoTarget
 					currTarget = enemyList.Next(); //already has confirmed enemylist is not empty, don't bother checking null or player
+					StartBossBattle(currTarget);
 					//return;
 				}
 			}
