@@ -65,7 +65,7 @@ const int IMPULSE_21			= 21;			// tourney toggle waiting room/spec
 const int IMPULSE_22			= 22;			// spectate
 
 //TODO ys56 use this
-const int IMPULSE_23			= 23;			// <unused> tab?
+const int IMPULSE_23			= 23;			// ys56 Tab
 const int IMPULSE_24			= 24;			// <unused>
 const int IMPULSE_25			= 25;			// <unused>
 const int IMPULSE_26			= 26;			// <unused>

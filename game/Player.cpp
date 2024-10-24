@@ -52,15 +52,18 @@ idActor* currTarget; //TODO ys65
 int currInt = 0; //TODO ys56
 const int cooldownAutoFire = 1200; //ys56
 const int cooldownStopFire = 300;
-//const int endAutoFire = 3500; //ys56
 int nextAutoFire = 0;
 int endAutoFire = 0;
-bool isAutoFire = false; //TODO ys56 this is just checking if blaster is selected or not
-bool hasAutoTarget = false;
+bool isAutoFire = false; //checks whether autotarget or middle of special action
+bool hasAutoTarget = false; //patch6 this checks if both targeting and target is a valid enemy
+bool isSprinting = false;
+int endSprint = 0;
 /*
 while weapon is blaster (blaster only for auto attack)
 auto attack
 else, dont auto attack, because middle of doing whatever special other weapon attack
+
+update patch6 : let attacks be cancle-able
 */
 
 
@@ -8568,8 +8571,7 @@ void idPlayer::PerformImpulse( int impulse ) {
 		ClientSendEvent( EVENT_IMPULSE, &msg );
 	}
 	//TODO ys56 patch4 look here
-	if ( impulse >= IMPULSE_0 && impulse <= IMPULSE_12 ) {
-
+	if (impulse >= IMPULSE_0 && impulse <= IMPULSE_12) { //maybe no need to change this, enough to simply re-bind keys in config?
 
 		if (enemyList.IsListEmpty()) {
 			return; //only self, don't bother.
@@ -8732,6 +8734,13 @@ void idPlayer::PerformImpulse( int impulse ) {
 			break;
 		}*/
 		//end ys56
+		case IMPULSE_27: {
+			if (!isSprinting) {
+				isSprinting = true;
+				endSprint = gameLocal.time + 5000;
+			}
+			break;
+		}
 				
 		case IMPULSE_28: {
  			if ( gameLocal.isClient || entityNumber == gameLocal.localClientNum ) {
@@ -8939,8 +8948,26 @@ void idPlayer::AdjustSpeed( void ) {
 	if ( influenceActive == INFLUENCE_LEVEL3 ) {
 		speed *= 0.33f;
 	}
-
+	//TODO ys56 patch7 look at this
+	/* original, ignore
 	physicsObj.SetSpeed( speed, pm_crouchspeed.GetFloat() );
+	*/
+	if (isSprinting) {
+		if (gameLocal.time > endSprint) {
+			endSprint = 0;
+			physicsObj.SetSpeed(speed, pm_crouchspeed.GetFloat());
+		}
+		else {
+			physicsObj.SetSpeed(200, 100);
+		
+		}
+	
+	}
+	else {
+		physicsObj.SetSpeed(speed, pm_crouchspeed.GetFloat());
+	}
+	
+	//end ys56 patch7
 }
 
 /*
