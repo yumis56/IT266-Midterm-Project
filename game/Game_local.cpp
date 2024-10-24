@@ -8365,6 +8365,7 @@ void idGameLocal::Cmd_PrintSpawnIds_f( const idCmdArgs& args ) {
 	}
 }
 
+
 /*
 ===============
 idGameLocal::GetDemoHud

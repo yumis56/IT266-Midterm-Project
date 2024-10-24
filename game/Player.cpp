@@ -3413,6 +3413,20 @@ void idPlayer::UpdateHudStats( idUserInterface *_hud ) {
 	}
 	
 	// Boss bar
+	//TODO ys56
+	/* found a better train of thought
+	if (currTarget != NULL && currTarget != this) { //bossenemy is set if true
+
+	}
+	else {
+		bossEnemy = NULL;
+		_hud->SetStateInt("boss_health", -1);
+		_hud->HandleNamedEvent("hideBossBar");
+		_hud->HandleNamedEvent("hideBossShieldBar");
+	}
+	*/
+
+	/* original, ignore
 	if ( _hud->State().GetInt ( "boss_health", "-1" ) != (bossEnemy ? bossEnemy->health : -1) ) {
 		if ( !bossEnemy || bossEnemy->health <= 0 ) {
 			bossEnemy = NULL;
@@ -3424,6 +3438,30 @@ void idPlayer::UpdateHudStats( idUserInterface *_hud ) {
 			_hud->HandleNamedEvent ( "updateBossBar" );
 		}
 	}
+	*/
+
+	//my note: theoretically, could have one method for regular target, and reuse boss for 'focus target' mechanic
+	if (g_showEnemies.GetBool() && currTarget != this) {
+		if (!bossEnemy || bossEnemy->health <= 0) {
+			bossEnemy = NULL;
+			_hud->SetStateInt("boss_health", -1);
+			_hud->HandleNamedEvent("hideBossBar");
+			_hud->HandleNamedEvent("hideBossShieldBar"); // grrr, for boss buddy..but maybe other bosses will have shields?
+		}
+		else {
+			_hud->SetStateInt("boss_health", bossEnemy->health);
+			_hud->HandleNamedEvent("updateBossBar");
+		}
+	}
+	else {
+		bossEnemy = NULL;
+		_hud->SetStateInt("boss_health", -1);
+		_hud->HandleNamedEvent("hideBossBar");
+		_hud->HandleNamedEvent("hideBossShieldBar");
+	}
+	
+
+	//end ys56
 		
 	// god mode information
 	_hud->SetStateString( "player_god", va( "%i", (godmode && g_showGodDamage.GetBool()) ) );
@@ -3623,6 +3661,7 @@ idPlayer::DrawHUD
 */
 void idPlayer::DrawHUD( idUserInterface *_hud ) {
 	idUserInterface * cursor = idPlayer::cursor;
+
  
 	if ( !gameLocal.GetLocalPlayer() ) {
 		// server netdemo
@@ -3648,11 +3687,11 @@ void idPlayer::DrawHUD( idUserInterface *_hud ) {
 			}
 		}		
 	}
-
+	
 	if ( disableHud || influenceActive != INFLUENCE_NONE || privateCameraView || !_hud || !g_showHud.GetBool() ) {
 		return;
 	}
-
+	
 	if ( objectiveSystemOpen ) {
 		if ( !GuiActive() ) {
 			// showing weapon zoom gui when objectives are open because that's the way I'z told to make it werkz
@@ -8563,6 +8602,8 @@ void idPlayer::PerformImpulse( int impulse ) {
 			else {
 				if (enemyList.IsListEmpty()) {
 					g_showEnemies.SetBool(0); // if only player, allow toggle on/off with tab
+					currTarget = NULL; //patch3 - trying to reset to null if targeting is off
+					break;
 				}
 			}
 			PickTarget();
@@ -9655,6 +9696,12 @@ void idPlayer::Think( void ) {
 			gameRenderWorld->DebugBounds(colorBlue, this->GetPhysics()->GetBounds().Expand(2), this->GetPhysics()->GetOrigin());
 			common->DPrintf("Currently (%d): '%s'\n", this->entityNumber, this->name.c_str());
 		}
+		else if (ent->IsActive()==false) { //Currently not in use, unsure if needed
+			common->DPrintf("enemy (%d)'%s'\n", currTarget->entityNumber, currTarget->name.c_str());
+			gameRenderWorld->DebugBounds(colorYellow, currTarget->GetPhysics()->GetBounds().Expand(2), currTarget->GetPhysics()->GetOrigin());
+			common->DPrintf("Currently (%d): '%s'\n", currTarget->entityNumber, currTarget->name.c_str());
+			LookAtEnemy(currTarget);
+		}
 		else {
 			common->DPrintf("enemy (%d)'%s'\n", currTarget->entityNumber, currTarget->name.c_str());
 			gameRenderWorld->DebugBounds(colorRed, currTarget->GetPhysics()->GetBounds().Expand(2), currTarget->GetPhysics()->GetOrigin());
@@ -9663,7 +9710,13 @@ void idPlayer::Think( void ) {
 		}
 		
 		
+		
 	}
+	/*
+	else { // patch3
+		bossEnemy = NULL;
+	}
+	*/
 	/* original, ignore
 	if ( g_showEnemies.GetBool() ) {
 		idActor *ent;
@@ -9713,15 +9766,18 @@ void idPlayer::Think( void ) {
 
 //=================
 //TODO ys56
-//change this next
 void idPlayer::PickTarget(void) {
 	idActor* ent = enemyList.Next();
 	if (currTarget == NULL || currTarget == this) {
 		if (ent != NULL) {
 			currTarget = ent;
+
+			
 		}
 		else {
 			currTarget = this;
+			return;
+			//bossEnemy = NULL; // patch3
 		}
 	}
 	else {
@@ -9734,16 +9790,29 @@ void idPlayer::PickTarget(void) {
 			if (currInt >= enemyList.Num()) {
 				currInt = 0;
 			}
+
 			if (enemyList.GetNode(currInt) != NULL) {
 				currTarget = enemyList.GetNode(currInt);
-			}
-			
-		}
-		
 
+				
+			}
+		} 
+		
+	}
+	if (currTarget != this && currTarget != NULL) {
+		gameLocal.Printf("Target Health '%d'\n", currTarget->health); //DEBUG ys56
+		StartBossBattle(currTarget);
+		gameLocal.Printf("'Boss' Name '%s'\n", currTarget->name.c_str()); //DEBUG ys56
 	}
 	
-	
+
+	//patch3
+	/*
+	if (currTarget != this && currTarget != NULL) {
+		
+	}
+	*/
+	//patch 3 end
 }
 
 //end ys56
@@ -13207,10 +13276,18 @@ void idPlayer::StartBossBattle ( idEntity* enemy ) {
 	bossEnemy = enemy;
 	idUserInterface *hud_ = GetHud();
 	if ( hud_ ) {
-		hud_->SetStateInt ( "boss_maxhealth", enemy->health );
+		hud_->SetStateInt ( "boss_maxhealth", enemy->maxHealth );
+		hud_->SetStateString("boss_name", enemy->name.c_str());
+		//hud_->SetStateString("boss_name::text", "Boss");
+		//gameLocal.Printf("Default name: '%s'\n", hud_->GetStateString("boss_name", "nothing set!")); //DEBUG ys56
+		//hud_->SetStateString("boss_name", "Boss"); //TODO ys56
 		hud_->HandleNamedEvent ( "showBossBar" );
+		//gameLocal.Printf("Default name: '%s'\n", hud_->GetStateString("boss_name", "again, nothing set!")); //DEBUG ys56
 	}
 }
+//TODO s
+
+//end ys56
 
 /*
 =====================

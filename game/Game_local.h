@@ -887,6 +887,7 @@ public:
 	bool					IsServerDemo( void ) const { return serverDemo; }
 	bool					IsTimeDemo( void ) const { return timeDemo; }
 	int						GetDemoFollowClient( void ) const { return serverDemo ? followPlayer : -1; }
+
 	idUserInterface			*GetDemoHud( void );
 	idUserInterface			*GetDemoMphud( void );
 	idUserInterface			*GetDemoCursor( void );

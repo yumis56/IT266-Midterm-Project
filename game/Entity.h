@@ -135,6 +135,8 @@ public:
 	idList< idEntityPtr<idEntity> >	targets;		// when this entity is activated these entities entity are activated
 
 	int						health;					// FIXME: do all objects really need health?
+	int						maxHealth; //TODO ys56 patch3
+	idStr					entName; //TODO ys56 patch3
 
 // RAVEN BEGIN
 // ddynerman: optional pre-prediction
