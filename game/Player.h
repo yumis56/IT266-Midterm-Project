@@ -14,6 +14,7 @@
 ===============================================================================
 */
 
+
 extern const idEventDef EV_Player_GetButtons;
 extern const idEventDef EV_Player_GetMove;
 extern const idEventDef EV_Player_GetViewAngles;
@@ -605,6 +606,8 @@ public:
 	void					RemoveWeapon				( const char *weap );
 	void					Flashlight					( bool on );
 	void					ToggleFlashlight			( void );
+	void					HandleInput					( void ); //TODO ys56
+	void					ToggleTarget				( void ); //TODO ys56
  	bool					CanShowWeaponViewmodel		( void ) const;
 
 	virtual bool			HandleSingleGuiCommand( idEntity *entityGui, idLexer *src );
@@ -1011,6 +1014,9 @@ private:
 	bool					CanZoom(void);
 
 	void					LookAtKiller( idEntity *inflictor, idEntity *attacker );
+	void					LookAtEnemy(idEntity* attacker); //TODO ys56
+	void					PickTarget(void); //TODO ys56
+	idActor* currTarget; //TODO ys56
 
 	void					StopFiring( void );
 	void					FireWeapon( void );

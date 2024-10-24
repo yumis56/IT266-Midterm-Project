@@ -626,10 +626,21 @@ void idEntity::Spawn( void ) {
 	if ( networkSync ) {
 		fl.networkSync = ( atoi( networkSync->GetValue() ) != 0 );
 	}
+	
+	//================
+	// TODO ys56 patch3
+	//temp = spawnArgs.GetString("name", va("%s_%s_%d", GetClassname(), spawnArgs.GetString("classname"), entityNumber));
+	temp = spawnArgs.GetString("name", va("%s %d", GetClassname(), entityNumber)); //wahoo it works!
+	
 
+	SetName(temp);
+	/* original, ignore
 	// every object will have a unique name
 	temp = spawnArgs.GetString( "name", va( "%s_%s_%d", GetClassname(), spawnArgs.GetString( "classname" ), entityNumber ) );
 	SetName( temp );
+	*/
+	//end ys56 patch3
+	//================
 
 	// if we have targets, wait until all entities are spawned to get them
 	if ( spawnArgs.MatchPrefix( "target" ) || spawnArgs.MatchPrefix( "guiTarget" ) ) {

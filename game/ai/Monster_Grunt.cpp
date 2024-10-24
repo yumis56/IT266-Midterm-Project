@@ -61,6 +61,11 @@ rvMonsterGrunt::Spawn
 ================
 */
 void rvMonsterGrunt::Spawn ( void ) {
+	maxHealth = spawnArgs.GetInt("health"); //TODO ys56 patch3
+	//this.SetName("Monster Grunt");
+	//entName = "Monster Grunt"; //todo ys56
+	//name = spawnArgs.GetString("name"); // TODO ys56 patch3
+
 	rageThreshold = spawnArgs.GetInt ( "health_rageThreshold" );
 
 	// Custom actions

@@ -47,6 +47,25 @@ idCVar net_showPredictionError( "net_showPredictionError", "-1", CVAR_INTEGER | 
 #ifdef _XENON
 bool g_ObjectiveSystemOpen = false;
 #endif
+ 
+idActor* currTarget; //TODO ys65
+int currInt = 0; //TODO ys56
+const int cooldownAutoFire = 1200; //ys56
+const int cooldownStopFire = 300;
+int nextAutoFire = 0;
+int endAutoFire = 0;
+bool isAutoFire = false; //checks whether autotarget or middle of special action
+bool hasAutoTarget = false; //patch6 this checks if both targeting and target is a valid enemy
+bool isSprinting = false;
+int endSprint = 0;
+/*
+while weapon is blaster (blaster only for auto attack)
+auto attack
+else, dont auto attack, because middle of doing whatever special other weapon attack
+
+update patch6 : let attacks be cancle-able
+*/
+
 
 // distance between ladder rungs (actually is half that distance, but this sounds better)
 const int LADDER_RUNG_DISTANCE = 32;
@@ -3409,6 +3428,20 @@ void idPlayer::UpdateHudStats( idUserInterface *_hud ) {
 	}
 	
 	// Boss bar
+	//TODO ys56
+	/* found a better train of thought
+	if (currTarget != NULL && currTarget != this) { //bossenemy is set if true
+
+	}
+	else {
+		bossEnemy = NULL;
+		_hud->SetStateInt("boss_health", -1);
+		_hud->HandleNamedEvent("hideBossBar");
+		_hud->HandleNamedEvent("hideBossShieldBar");
+	}
+	*/
+
+	/* original, ignore
 	if ( _hud->State().GetInt ( "boss_health", "-1" ) != (bossEnemy ? bossEnemy->health : -1) ) {
 		if ( !bossEnemy || bossEnemy->health <= 0 ) {
 			bossEnemy = NULL;
@@ -3420,6 +3453,30 @@ void idPlayer::UpdateHudStats( idUserInterface *_hud ) {
 			_hud->HandleNamedEvent ( "updateBossBar" );
 		}
 	}
+	*/
+
+	//my note: theoretically, could have one method for regular target, and reuse boss for 'focus target' mechanic
+	if (g_showEnemies.GetBool() && currTarget != this) {
+		if (!bossEnemy || bossEnemy->health <= 0) {
+			bossEnemy = NULL;
+			_hud->SetStateInt("boss_health", -1);
+			_hud->HandleNamedEvent("hideBossBar");
+			_hud->HandleNamedEvent("hideBossShieldBar"); // grrr, for boss buddy..but maybe other bosses will have shields?
+		}
+		else {
+			_hud->SetStateInt("boss_health", bossEnemy->health);
+			_hud->HandleNamedEvent("updateBossBar");
+		}
+	}
+	else {
+		bossEnemy = NULL;
+		_hud->SetStateInt("boss_health", -1);
+		_hud->HandleNamedEvent("hideBossBar");
+		_hud->HandleNamedEvent("hideBossShieldBar");
+	}
+	
+
+	//end ys56
 		
 	// god mode information
 	_hud->SetStateString( "player_god", va( "%i", (godmode && g_showGodDamage.GetBool()) ) );
@@ -3456,6 +3513,7 @@ void idPlayer::UpdateHudWeapon( int displayWeapon ) {
 	idUserInterface * hud = idPlayer::hud;
 	idUserInterface * mphud = idPlayer::mphud;
 	idUserInterface * cursor = idPlayer::cursor;
+
 
 	if ( !gameLocal.GetLocalPlayer() ) {
 		// server netdemo
@@ -3618,6 +3676,7 @@ idPlayer::DrawHUD
 */
 void idPlayer::DrawHUD( idUserInterface *_hud ) {
 	idUserInterface * cursor = idPlayer::cursor;
+
  
 	if ( !gameLocal.GetLocalPlayer() ) {
 		// server netdemo
@@ -3643,11 +3702,11 @@ void idPlayer::DrawHUD( idUserInterface *_hud ) {
 			}
 		}		
 	}
-
+	
 	if ( disableHud || influenceActive != INFLUENCE_NONE || privateCameraView || !_hud || !g_showHud.GetBool() ) {
 		return;
 	}
-
+	
 	if ( objectiveSystemOpen ) {
 		if ( !GuiActive() ) {
 			// showing weapon zoom gui when objectives are open because that's the way I'z told to make it werkz
@@ -4929,7 +4988,7 @@ void idPlayer::UpdatePowerUps( void ) {
 		}
 // RITUAL END
 	}
-
+	//TODO ys56 patch4 look here
 	// Regenerate ammo
 	if( gameLocal.isServer && PowerUpActive( POWERUP_AMMOREGEN ) ) {
 		for( int i = 0; i < MAX_WEAPONS; i++ ) {
@@ -4950,6 +5009,7 @@ void idPlayer::UpdatePowerUps( void ) {
 					}
 
 					nextAmmoRegenPulse[ ammoIndex ] = gameLocal.time + time;
+					//TODO ys56 patch4 look here !!
 				}	
 			}
 		}
@@ -5720,6 +5780,15 @@ idPlayer::SelectWeapon
 */
 void idPlayer::SelectWeapon( int num, bool force ) {
 	const char *weap;
+	//TODO ys56 patch5
+	//if implementing non-weapon commands, simply add their bool here
+	/*
+	if (nextAutoFire != 0) {
+		gameLocal.Warning("Haven't completed previous move.");
+		return;
+	}
+	*/
+	//end ys56 patch5
 
  	if ( !weaponEnabled || spectating || gameLocal.inCinematic || health < 0 ) {
 		return;
@@ -6104,17 +6173,64 @@ void idPlayer::Weapon_Combat( void ) {
 	} 
 
 	weaponCatchup = false;
-
+	//TODO ys56 patch4 look at this
 	// check for attack
 	pfl.weaponFired = false;
  	if ( !influenceActive ) {
+		//TODO ys56 patch4 patch5
+		/* original, ignore
  		if ( ( usercmd.buttons & BUTTON_ATTACK ) && !weaponGone ) {
  			FireWeapon();
  		} else if ( oldButtons & BUTTON_ATTACK ) {
  			pfl.attackHeld = false;
  			weapon->EndAttack();
  		}
+		*/
+		if (hasAutoTarget) { //weapon should only be fired when there is a target, non-attacks are handled different
+			if (isAutoFire && currentWeapon == 0) { //regular blaster
+				if (gameLocal.time > nextAutoFire) {
+					FireWeapon();
+					nextAutoFire = gameLocal.time + cooldownAutoFire; // Set the next attack time
+					endAutoFire = gameLocal.time + cooldownStopFire;
+				}
+				if (gameLocal.time > endAutoFire) {
+					pfl.attackHeld = false;
+					weapon->EndAttack();
+				}
+			}
+			else if (currentWeapon == 0) { //charged blaster
+				if (gameLocal.time > nextAutoFire) {
+					FireWeapon();
+					nextAutoFire = gameLocal.time + 2400; // Set the next attack time
+					endAutoFire = gameLocal.time + 1200;
+				}
+				if (gameLocal.time > endAutoFire) {
+					pfl.attackHeld = false;
+					weapon->EndAttack();
+					isAutoFire = true;
+
+					//reset, TODO weapons cannot swap if current move has not fired
+					nextAutoFire = 0;
+					endAutoFire = 0;
+					//other weapons will need to swap back to blaster
+				}
+			}
+			else {
+				pfl.attackHeld = false;
+				weapon->EndAttack();
+				nextAutoFire = 0;
+				endAutoFire = 0;
+			}
+		}
+		else{
+			pfl.attackHeld = false;
+			weapon->EndAttack();
+			nextAutoFire = 0;
+			endAutoFire = 0;
+		}
  	}
+
+	//end ys56 patch4 patch5
 
 	if ( gameLocal.isMultiplayer && spectating ) {
 		UpdateHudWeapon();
@@ -8454,8 +8570,47 @@ void idPlayer::PerformImpulse( int impulse ) {
 		msg.WriteBits( impulse, IMPULSE_NUMBER_OF_BITS );
 		ClientSendEvent( EVENT_IMPULSE, &msg );
 	}
+	//TODO ys56 patch4 look here
+	if (impulse >= IMPULSE_0 && impulse <= IMPULSE_12) { //maybe no need to change this, enough to simply re-bind keys in config?
 
-	if ( impulse >= IMPULSE_0 && impulse <= IMPULSE_12 ) {
+		if (enemyList.IsListEmpty()) {
+			return; //only self, don't bother.
+		}
+		else {
+			if (hasAutoTarget && isAutoFire) { //already has target + already auto fire
+				isAutoFire = false; //temp turn off autofire when any valid numkey pressed, later turn back after firing
+				nextAutoFire = 0;
+				endAutoFire = 0;
+			}
+			else if (hasAutoTarget) { //has target but is using non-auto-fire move
+				//gameLocal.Warning("Haven't completed previous move.");
+				return; //don't allow weapon swap
+			}
+			else { //has no target yet | at some point player had stopped targeting
+				if (g_showEnemies.GetBool() == false) {
+					g_showEnemies.SetBool(1);
+					//isAutoFire = true; // should be false
+					isAutoFire = false;
+					//PickTarget(); //this will set the hasAutoTarget
+					currTarget = enemyList.Next(); //already has confirmed enemylist is not empty, don't bother checking null or player
+					StartBossBattle(currTarget);
+					//return;
+				}
+			}
+		}
+
+
+			
+			
+			
+
+
+
+		//set false only if even targeting
+		// reset timers if impulse pressed
+		// 
+		// instead of select weapon, a separate method calls selectweapon, fires, then swaps back to blaster
+		//end ys56 patch4
 		SelectWeapon( impulse, false );
 		return;
 	}
@@ -8550,6 +8705,42 @@ void idPlayer::PerformImpulse( int impulse ) {
    			}
    			break;
    		}
+		//TODO ys56
+		case IMPULSE_23: {
+			if (g_showEnemies.GetBool() == false) {
+				g_showEnemies.SetBool(1);
+				isAutoFire = true;
+			}
+			else {
+				if (enemyList.IsListEmpty()) {
+					g_showEnemies.SetBool(0); // if only player, allow toggle on/off with tab
+					currTarget = NULL; //patch3 - trying to reset to null if targeting is off
+					isAutoFire = false;
+					hasAutoTarget = false;
+					break;
+				}
+			}
+			PickTarget();
+			break;
+		}/*
+		case IMPULSE_24: {
+			if (!isAutoFire) {
+				//gameLocal.Warning("Haven't completed previous move.");
+				break;
+			}
+			else {
+				g_showEnemies.SetBool(0);
+			}
+			break;
+		}*/
+		//end ys56
+		case IMPULSE_27: {
+			if (!isSprinting) {
+				isSprinting = true;
+				endSprint = gameLocal.time + 5000;
+			}
+			break;
+		}
 				
 		case IMPULSE_28: {
  			if ( gameLocal.isClient || entityNumber == gameLocal.localClientNum ) {
@@ -8757,8 +8948,26 @@ void idPlayer::AdjustSpeed( void ) {
 	if ( influenceActive == INFLUENCE_LEVEL3 ) {
 		speed *= 0.33f;
 	}
-
+	//TODO ys56 patch7 look at this
+	/* original, ignore
 	physicsObj.SetSpeed( speed, pm_crouchspeed.GetFloat() );
+	*/
+	if (isSprinting) {
+		if (gameLocal.time > endSprint) {
+			endSprint = 0;
+			physicsObj.SetSpeed(speed, pm_crouchspeed.GetFloat());
+		}
+		else {
+			physicsObj.SetSpeed(200, 100);
+		
+		}
+	
+	}
+	else {
+		physicsObj.SetSpeed(speed, pm_crouchspeed.GetFloat());
+	}
+	
+	//end ys56 patch7
 }
 
 /*
@@ -9628,6 +9837,72 @@ void idPlayer::Think( void ) {
 		common->DPrintf( "player %d not thinking?\n", entityNumber );
 	}
 
+	//=========
+	//TODO ys56
+	if (g_showEnemies.GetBool()) {
+		idActor* ent = enemyList.Next();
+		if (ent == NULL) {
+			gameRenderWorld->DebugBounds(colorBlue, this->GetPhysics()->GetBounds().Expand(2), this->GetPhysics()->GetOrigin());
+			common->DPrintf("Currently (%d): '%s'\n", this->entityNumber, this->name.c_str());
+			hasAutoTarget = false;
+		}/*
+		else if (ent->IsActive()==false) { //Currently not in use, unsure if needed
+			common->DPrintf("enemy (%d)'%s'\n", currTarget->entityNumber, currTarget->name.c_str());
+			gameRenderWorld->DebugBounds(colorYellow, currTarget->GetPhysics()->GetBounds().Expand(2), currTarget->GetPhysics()->GetOrigin());
+			common->DPrintf("Currently (%d): '%s'\n", currTarget->entityNumber, currTarget->name.c_str());
+			LookAtEnemy(currTarget);
+		}*/
+		else {
+			common->DPrintf("enemy (%d)'%s'\n", currTarget->entityNumber, currTarget->name.c_str());
+			gameRenderWorld->DebugBounds(colorRed, currTarget->GetPhysics()->GetBounds().Expand(2), currTarget->GetPhysics()->GetOrigin());
+			common->DPrintf("Currently (%d): '%s'\n", currTarget->entityNumber, currTarget->name.c_str());
+			LookAtEnemy(currTarget);
+			hasAutoTarget = true;
+		}
+
+		//already assumed that target is either this or an enemy, never null
+		/*
+		if (currTarget != this && isAutoFire) {
+			if (gameLocal.time > nextAutoFire && !weaponGone) {
+				nextAutoFire = gameLocal.time + cooldownAutoFire;
+				FireWeapon();
+				endAutoFire = gameLocal.time + (cooldownAutoFire * 3.5);
+				
+			}
+			if (gameLocal.time > endAutoFire && endAutoFire != 0) {
+				pfl.attackHeld = false;
+				weapon->EndAttack();
+				endAutoFire = 0;
+			}
+		}
+		else {
+			pfl.attackHeld = false;
+			weapon->EndAttack();
+			endAutoFire = 0;
+		}
+
+		*/
+		
+		//maybe patch5 if all attacks realively same then use another cooldown for swapping back to blaster, this should be last choice though
+		
+	} //end of checking showEnemies true
+	else {
+		hasAutoTarget = false;
+		//isAutofire = true //should it? i feel like pressing the numkeys should also trigger autotarget
+		nextAutoFire = 0;
+		endAutoFire = 0;
+
+	}
+
+	
+
+
+	/*
+	else { // patch3
+		bossEnemy = NULL;
+	}
+	*/
+	/* original, ignore
 	if ( g_showEnemies.GetBool() ) {
 		idActor *ent;
 		int num = 0;
@@ -9635,15 +9910,76 @@ void idPlayer::Think( void ) {
 			common->DPrintf( "enemy (%d)'%s'\n", ent->entityNumber, ent->name.c_str() );
 			gameRenderWorld->DebugBounds( colorRed, ent->GetPhysics()->GetBounds().Expand( 2 ), ent->GetPhysics()->GetOrigin() );
 			num++;
+
 		}
 		common->DPrintf( "%d: enemies\n", num );
 	}
+	*/
+
+
+	//END ys56
+	//========
 
 	if ( !inBuyZonePrev )
 		inBuyZone = false;
 
 	inBuyZonePrev = false;
 }
+
+//=================
+//TODO ys56
+void idPlayer::PickTarget(void) {
+	//gameLocal.Printf("Charge Delay: '%f' ms\n", GetCurrentWeapon()->spawnArgs.GetFloat("chargeDelay")); //TODO ys56 patch4
+	idActor* ent = enemyList.Next();
+	if (currTarget == NULL || currTarget == this) {
+		if (ent != NULL) {
+			currTarget = ent;
+
+			
+		}
+		else {
+			currTarget = this;
+			return;
+			//bossEnemy = NULL; // patch3
+		}
+	}
+	else {
+		//if already has non-player target
+		if (enemyList.Num() <= 1) {
+			currTarget = ent;
+		}
+		else {
+			currInt++;
+			if (currInt >= enemyList.Num()) {
+				currInt = 0;
+			}
+
+			if (enemyList.GetNode(currInt) != NULL) {
+				currTarget = enemyList.GetNode(currInt);
+
+				
+			}
+		} 
+		
+	}
+	if (currTarget != this && currTarget != NULL) {
+		gameLocal.Printf("Target Health '%d'\n", currTarget->health); //DEBUG ys56
+		StartBossBattle(currTarget);
+		//gameLocal.Printf("'Boss' Name '%s'\n", currTarget->name.c_str()); //DEBUG ys56
+	}
+	
+
+	//patch3
+	/*
+	if (currTarget != this && currTarget != NULL) {
+		
+	}
+	*/
+	//patch 3 end
+}
+
+//end ys56
+//=================
 
 /*
 =================
@@ -9674,6 +10010,26 @@ bool idPlayer::CanZoom( void  )
 
 	return weapon && weapon->CanZoom() && !weapon->IsReloading ( );
 }
+
+//=========
+// this works for third person!! how exciting!!!
+//TODO ys56
+void idPlayer::LookAtEnemy(idEntity* attacker) {
+	idVec3 dir;
+
+	if (attacker && attacker != this) {
+		dir = attacker->GetPhysics()->GetOrigin() - GetPhysics()->GetOrigin();
+	}
+	else {
+		dir = viewAxis[0];
+	}
+
+	idAngles ang(0, dir.ToYaw(), 0);
+	SetViewAngles(ang);
+}
+
+//END ys56
+//=========
 
 /*
 ==================
@@ -10111,6 +10467,11 @@ void idPlayer::Damage( idEntity *inflictor, idEntity *attacker, const idVec3 &di
 	if ( !attacker ) {
 		attacker = gameLocal.world;
 	}
+	//TODO ys56
+	if (attacker == this) {
+		return;
+	}
+	//END ys56
 
 	// MCG: player doesn't take friendly fire damage, except from self!
 	if ( !gameLocal.isMultiplayer && attacker != this ) {
@@ -10760,7 +11121,7 @@ void idPlayer::OffsetThirdPersonVehicleView( bool clip ) {
 	renderView->viewaxis = angles.ToMat3() * physicsObj.GetGravityAxis();
 	renderView->viewID = 0;
 }
-
+//LOOK AT THIS ys56
 /*
 ===============
 idPlayer::OffsetThirdPersonView
@@ -11791,7 +12152,7 @@ void idPlayer::LocalClientPredictionThink( void ) {
 	usercmd.buttons &= ~buttonMask;
 
 	if ( idealWeapon != currentWeapon ) {
-		usercmd.buttons &= ~BUTTON_ATTACK;		
+		usercmd.buttons &= ~BUTTON_ATTACK;	usercmd.buttons &= ~BUTTON_ATTACK;		
 	}
 
  	// clear the ik before we do anything else so the skeleton doesn't get updated twice
@@ -12172,6 +12533,12 @@ void idPlayer::ClientPredictionThink( void ) {
 	NonLocalClientPredictionThink();
 }
 
+
+
+//TODO ys56 ================
+//return idActor::GetMasterPosition( masterOrigin, masterAxis );
+
+
 /*
 ================
 idPlayer::GetMasterPosition
@@ -12256,6 +12623,7 @@ bool idPlayer::WantSmoothing( void ) const {
 	}
 	return true;
 }
+
 
 /*
 ================
@@ -13071,10 +13439,18 @@ void idPlayer::StartBossBattle ( idEntity* enemy ) {
 	bossEnemy = enemy;
 	idUserInterface *hud_ = GetHud();
 	if ( hud_ ) {
-		hud_->SetStateInt ( "boss_maxhealth", enemy->health );
+		hud_->SetStateInt ( "boss_maxhealth", enemy->maxHealth );
+		hud_->SetStateString("boss_name", enemy->name.c_str());
+		//hud_->SetStateString("boss_name::text", "Boss");
+		//gameLocal.Printf("Default name: '%s'\n", hud_->GetStateString("boss_name", "nothing set!")); //DEBUG ys56
+		//hud_->SetStateString("boss_name", "Boss"); //TODO ys56
 		hud_->HandleNamedEvent ( "showBossBar" );
+		//gameLocal.Printf("Default name: '%s'\n", hud_->GetStateString("boss_name", "again, nothing set!")); //DEBUG ys56
 	}
 }
+//TODO s
+
+//end ys56
 
 /*
 =====================
