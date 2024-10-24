@@ -6184,6 +6184,12 @@ void idPlayer::Weapon_Combat( void ) {
  		}
 		*/
 		if (hasAutoTarget) { //weapon should only be fired when there is a target, non-attacks are handled different
+			if (isAutoFire && currentWeapon != 0) {
+				//if here, something went wrong patch6
+				SelectWeapon(0);
+
+			}
+			//
 			if (isAutoFire && currentWeapon == 0) { //regular blaster
 				if (gameLocal.time > nextAutoFire) {
 					FireWeapon();
@@ -6210,6 +6216,24 @@ void idPlayer::Weapon_Combat( void ) {
 					nextAutoFire = 0;
 					endAutoFire = 0;
 					//other weapons will need to swap back to blaster
+				}
+			} //TODO change config key binding
+			else if (currentWeapon == 1){
+				if (gameLocal.time > nextAutoFire) {
+					FireWeapon();
+					nextAutoFire = gameLocal.time + 2400; // Set the next attack time
+					endAutoFire = gameLocal.time + 1200;
+				}
+				if (gameLocal.time > endAutoFire) {
+					pfl.attackHeld = false;
+					weapon->EndAttack();
+					isAutoFire = true;
+
+					//reset, TODO weapons cannot swap if current move has not fired
+					nextAutoFire = 0;
+					endAutoFire = 0;
+					//other weapons will need to swap back to blaster
+					SelectWeapon(0);
 				}
 			}
 			else {
@@ -8705,6 +8729,7 @@ void idPlayer::PerformImpulse( int impulse ) {
 		//TODO ys56
 		case IMPULSE_23: {
 			if (g_showEnemies.GetBool() == false) {
+				SelectWeapon(0);
 				g_showEnemies.SetBool(1);
 				isAutoFire = true;
 			}
@@ -8721,12 +8746,15 @@ void idPlayer::PerformImpulse( int impulse ) {
 			break;
 		}
 		case IMPULSE_24: {
-			if (!isAutoFire) {
-				//gameLocal.Warning("Haven't completed previous move.");
-				break;
-			}
-			else {
-				g_showEnemies.SetBool(0);
+			if (g_showEnemies.GetBool()) {
+				if (!isAutoFire) {
+					//gameLocal.Warning("Haven't completed previous move.");
+					break;
+				}
+				else {
+					g_showEnemies.SetBool(0);
+				}
+
 			}
 			break;
 		}
